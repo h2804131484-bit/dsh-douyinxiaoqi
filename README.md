@@ -1,5 +1,7 @@
 # 大肥鱼 · 抖音版
 
+[github.com/h2804131484-bit/dafeiyu-douyin](https://github.com/h2804131484-bit/dafeiyu-douyin)
+
 让 AI agent 用**你本机的真实 Chrome** 操作抖音：刷推荐、看热榜、搜作品、读评论、看主页、点赞收藏关注、在作品下发一条评论，还能把本地视频传进创作者中心。
 
 不是 API 爬虫。抖音的 Web 接口靠 `a_bogus` 签名 + 设备指纹，硬逆向既脏又容易失效；这个插件反过来——**让真实浏览器自己发请求，我们只拦页面里的 JSON**，读数据靠拦截，写动作靠点真实 DOM。
@@ -27,7 +29,7 @@
 ```bash
 # 在 DSH profile 目录里
 cd ~/.dsh/profiles/desktop
-pnpm add github:<your-github-username>/dafeiyu-douyin
+pnpm add github:h2804131484-bit/dafeiyu-douyin
 ```
 
 然后在 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 里加一条，并在 `cordis.patch.yml` 里 insert：
