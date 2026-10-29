@@ -51,6 +51,9 @@ pnpm add github:<your-github-username>/dafeiyu-douyin
 2. **扫码登录**，用抖音 App 扫弹出的二维码
 3. 登录态落在 `~/.dsh/dafeiyu-douyin/douyin/secrets/cookies.json`，之后不用天天扫
 
+> 不想扫码？如果你已经有一个**带调试端口**的 Chrome（`chrome --remote-debugging-port=9222`），在 `~/.dsh/dafeiyu-douyin/config.json` 里写 `{"douyin":{"cdpUrl":"http://127.0.0.1:9222"}}`，插件就直接接管那个浏览器，登录态跟着它走。
+> 抖音桌面客户端（`/Applications/抖音.app`）虽然是 Electron，但它自己解析启动参数，`--remote-debugging-port` 会被拒（`bad option`），所以**没法从客户端里抠登录态**，还是扫码这一条路。
+
 想用命令行验证：
 
 ```bash
@@ -88,6 +91,15 @@ action=publish args={mode:"prepare", videoPath:"/abs/clip.mp4", title:"…", des
 action=publish args={mode:"commit"} approvalId=… 
   → 人类在总控台点头后才真发
 ```
+
+补充几个 prepare 阶段会自动做掉的事（都是踩过坑才加上的）：
+
+- 等「重新上传」出现才算传完，出现「上传失败」直接报错，不会傻等
+- 标题框是 `input[placeholder*="填写作品标题"]`，简介是 `div.zone-container[contenteditable]`（新版发布页 DOM）
+- **自主声明**：默认帮你勾「内容由AI生成」（`args.declaration` 可改）。AI 配音/字幕的成片本来就该声明
+- 点发布前清掉新手引导/话题下拉浮层，否则按钮点不动
+- 没设封面时自动选它的第一个推荐封面兜底
+- 撞到短信验证会返回 `needsSms`，需要你本人收验证码，插件不会瞎猜
 
 另外两个工具：`dafeiyu_douyin_thread`（总线程）、`dafeiyu_douyin_pending`（审批队列，只能看不能批自己）、`dafeiyu_douyin_policy`（看/改策略）。
 
@@ -145,12 +157,24 @@ action=publish args={mode:"commit"} approvalId=…
 - **一个 profile 只能被一个进程用**。插件开着浏览器时，外面的脚本再开会报「正在现有的浏览器会话中打开」。先 `action=close`。
 - **搜索别直接拼 URL**。`/search/xxx` 直连会被风控，插件是进推荐页后点搜索框输入。
 - 私信（读会话/发消息）还没做——接口是 `/aweme/v1/web/im/*`，能接，但怕被拿来群发，先留白。
+- **桌面客户端不能当登录源**。它是 Electron，但启动器只认自己的参数，`--remote-debugging-port` 直接 `bad option` 退出；想复用登录态只能走上面的 `cdpUrl` + 一个自己开的 Chrome。
 
 ---
 
 ## 一点边界
 
 这插件是给「自己的账号、自己的操作节奏」用的。默认限额和安静时段不是装饰，是防止 agent 半夜上头。如果你 fork 之后把限额全放开、把安静时段关掉，那是你的选择，但别把这个仓库当外挂的底座。
+
+---
+
+## 致谢 / 借鉴
+
+这套东西不是从零造的，上传那半边的选择器和踩坑结论大量来自这两个项目，建议一起看：
+
+- [dreammis/social-auto-upload](https://github.com/dreammis/social-auto-upload) —— 抖音/小红书/视频号/B站/YouTube 的自动投稿。本仓库的创作者中心流程参考了它的 `uploader/douyin_uploader/main.py`：上传完成判定（`重新上传`）、标题/简介选择器、自主声明弹窗（`semi-radio` + `内容由AI生成`）、清浮层（`.shepherd-element` / `mention-wrapper`）、短信验证码兜底、发布成功以跳转 `content/manage` 为准。
+- [NanmiCoder/MediaCrawler](https://github.com/NanmiCoder/MediaCrawler) —— 各平台评论抓取的 Playwright 方案，读数据那半边的思路（别硬逆签名，让真实浏览器发请求）和它一致。
+
+本仓库和它们的区别：这里把它包成 DSH 插件，加了权限闸、总线程、两步投稿和审批队列，不批量刷、不群发。
 
 ---
 
