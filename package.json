@@ -1,11 +1,22 @@
 {
-  "name": "dafeiyu-douyin",
-  "version": "0.1.0",
+  "name": "dsh-douyinxiaoqi",
+  "displayName": "抖音-我才不是魔丸鱼（小七）",
+  "version": "0.6.0",
   "private": false,
   "type": "module",
-  "description": "大肥鱼·抖音版：用本机真实 Chrome 驱动抖音的 DSH 插件 —— 看推荐/热榜/搜索/评论/主页，点赞收藏关注评论，把本地视频传进创作者中心；写动作过权限闸，发布必须人类点头。",
+  "description": "抖音-我才不是魔丸鱼（小七）：把「大肥鱼」的人格/记忆/关系/规划/心跳搬进抖音场景，用本机真实 Chrome 看推荐、读评论、回私信、点赞收藏关注评论，并把本地视频传进创作者中心；写动作过权限闸，发布必须人类点头，总控台一个页面看住。",
   "license": "MIT",
-  "keywords": ["dsh", "dsh-plugin", "douyin", "tiktok", "playwright", "agent"],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "douyin",
+    "tiktok",
+    "playwright",
+    "agent",
+    "persona",
+    "memory",
+    "dsh-bundle"
+  ],
   "icon": "./icon.svg",
   "exports": {
     ".": "./index.js",
@@ -17,15 +28,35 @@
     "playwright-core": ">=1.40.0"
   },
   "peerDependenciesMeta": {
-    "playwright-core": { "optional": true }
+    "playwright-core": {
+      "optional": true
+    }
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": ["@deepseek-ai/dsh-client-ui-settings-general"]
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings-general"
+      ]
     }
   },
-  "files": ["index.js", "client.js", "lib", "icon.svg", "cordis.patch.yml", "README.md", "LICENSE"]
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "docs",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/h2804131484-bit/dsh-douyinxiaoqi.git"
+  },
+  "homepage": "https://github.com/h2804131484-bit/dsh-douyinxiaoqi"
 }

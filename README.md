@@ -1,8 +1,12 @@
-# 大肥鱼 · 抖音版
+# dsh-douyinxiaoqi · 抖音-我才不是魔丸鱼（小七）
 
-[github.com/h2804131484-bit/dafeiyu-douyin](https://github.com/h2804131484-bit/dafeiyu-douyin)
+[github.com/h2804131484-bit/dsh-douyinxiaoqi](https://github.com/h2804131484-bit/dsh-douyinxiaoqi)
+
+> 装法两条：**插件市场**搜 `dsh-douyinxiaoqi` 点安装；或 `pnpm add github:h2804131484-bit/dsh-douyinxiaoqi`。
 
 让 AI agent 用**你本机的真实 Chrome** 操作抖音：刷推荐、看热榜、搜作品、读评论、看主页、点赞收藏关注、在作品下发一条评论，还能把本地视频传进创作者中心。
+
+0.2 起它不只是个遥控器：**同一个插件里还住着一个有记忆、有关系、有规划、会自己找事做的「大肥鱼」**——人设文档、核心记忆、短时记忆、对具体账号的印象、满意度与厌倦度、自主心跳，全都跟抖音动作绑在一起。
 
 不是 API 爬虫。抖音的 Web 接口靠 `a_bogus` 签名 + 设备指纹，硬逆向既脏又容易失效；这个插件反过来——**让真实浏览器自己发请求，我们只拦页面里的 JSON**，读数据靠拦截，写动作靠点真实 DOM。
 
@@ -12,7 +16,7 @@
 
 **是**
 
-- 一个 DSH（DeepSeek Harness）插件，装完会多一个工具 `dafeiyu_douyin`，和一个总控台页面「设置 → 大肥鱼·抖音」。
+- 一个 DSH（DeepSeek Harness）插件，装完会多一个工具 `dafeiyu_douyin`，和一个总控台页面「设置 → 抖音-我才不是魔丸鱼（小七）」。
 - 一套**权限闸**：读的随便跑，写的过安静时段 / 限额 / 风控冷却 / 审批。
 - 一套**总线程**：一次只做一件事，写动作之前必须先开线程，避免 agent 东一下西一下。
 
@@ -24,42 +28,84 @@
 
 ---
 
+## 0.2 里多了什么
+
+人格层（和 B 站版那套对齐，但换成了抖音场景）：
+
+| 工具 | 干什么 |
+|---|---|
+| `dafeiyu_self` | 读写自己的 6 份文档：persona 人设 / style 说话 / preferences 偏好 / plan 规划 / progress 进度 / heartbeat 心跳行动稿 |
+| `dafeiyu_memory` | recall 检索、core_add 记一条核心记忆、recent 看最近说过的话、mood_get/mood_set 情绪、boredom_get/reset 厌倦、satisfaction_get 满足度 |
+| `dafeiyu_relation` | 对具体账号的印象档案：list / get / note，写「他在乎什么、上次聊到哪」，不写空话 |
+| `dafeiyu_plan` | 规划与进度：get / set / add / done |
+| `dafeiyu_learn` | 学习目标与技能：status / goal_add / goal_update / skill_add / skill_update |
+| `dafeiyu_tick` | 一次拿到情绪、厌倦、满足、线程、待批、风控、心跳状态和建议的下一步 |
+| `dafeiyu_chat` | 收尾闸：满足度没满不许关对话；关之前必须先把 plan 改好 |
+| `dafeiyu_thread` / `dafeiyu_pending` | 总线程 / 审批队列 |
+
+系统提示里每次会注入一张【大肥鱼 · 抖音此刻】卡片（心情、腻了、满足、手头、最近记得、打算、学习、规矩），所以它不需要你每次交代「你是谁、在干什么」。
+
+总控台也重写了：**总览 / 抖音 / 人设 / 记忆 / 关系 / 规划 / 审批 / 权限** 八个页签，读全都放里面，写只有两条路——你在审批页点头，或你自己动手改文档。
+
+### 0.2.1：让它别像个模板
+
+- 默认人设/说话/偏好/心跳稿全部重写成人话：有口味、会烦、会得意、被问“在吗”就回“在”，不写客服句式。
+- 提示卡多了**时间感**（凌晨脑子慢半拍 / 下午最适合干正事）、**能量**（没劲就只随手看看）、**刚做过**（上一条动作）和**对主人的印象**。
+- 心跳默认开着（`config.heartbeat.enabled`）：安静时段不吵你，白天它会自己接上一件事继续做；嫌吵就在总览里关。
+- 修了一个把「我是」渲染成“…”的截断 bug（`map(compact)` 把数组下标当成了长度上限）。
+
+### 0.2.2：让“刷一屏”真的刷得出来
+
+抖音精选页 2026 年改成流式卡片，DOM 里已经没有 `a[href*="/video/"]` 锚点，推荐数据全走
+`https://www.douyin.com/aweme/v2/web/module/feed/`。之前只认 `/aweme/v1/` 的响应，所以永远读到 0 条。
+
+- `collect()` 改成按 `/aweme/` 前缀收响应，v1/v2 都接
+- `feed()` 的返回值多一个 `debug` 字段（抓到几个响应、几条推荐流、最后 4 个 URL），出问题不用猜
+- 顺手修了三处会让整个工具调用失败的地方：返回值里有 `undefined`（不是无损 JSON）、`JSON.stringify` 撞上 BigInt、`riskGet()` 为空时的空指针；`defineTool` 现在统一过一遍 `jsonSafe()`
+
+实测（本机真实 Chrome，登录态）：`feed` 8.5s 出 6 条、`comments` 7.9s 出 5 条、`hot` 5.5s、`search` 11.3s。
+
+
+---
+
 ## 装法
 
 ```bash
 # 在 DSH profile 目录里
 cd ~/.dsh/profiles/desktop
-pnpm add github:h2804131484-bit/dafeiyu-douyin
+pnpm add github:h2804131484-bit/dsh-douyinxiaoqi
 ```
 
 然后在 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 里加一条，并在 `cordis.patch.yml` 里 insert：
 
 ```yml
 - insert:
-    - id: dafeiyu-douyin
-      name: dafeiyu-douyin
+    - id: dsh-douyinxiaoqi
+      name: dsh-douyinxiaoqi
       config: {}
 ```
 
-重启 DSH。总控台「设置」里会多一个 **大肥鱼·抖音** 页签。
+重启 DSH。总控台「设置」里会多一个 **抖音-我才不是魔丸鱼（小七）** 页签。
 
-> 需要本机装了 Google Chrome。playwright-core 不用手动装——第一次点「装/更新运行时」，插件会把它装进自己的状态目录（`~/.dsh/dafeiyu-douyin/douyin/runtime`），不污染你的项目依赖。
+> 需要本机装了 Google Chrome。playwright-core 不用手动装——第一次点「装/更新运行时」，插件会把它装进自己的状态目录（`~/.dsh/dsh-douyinxiaoqi/douyin/runtime`），不污染你的项目依赖。
 
 ---
 
+> 状态目录默认 `~/.dsh/dsh-douyinxiaoqi/`；从老版本（`dafeiyu-douyin`）升级的用户会自动沿用旧目录，不搬家。
+
 ## 第一次用
 
-1. 设置 → 大肥鱼·抖音 → **装/更新运行时**（约 30 秒）
+1. 设置 → 抖音-我才不是魔丸鱼（小七） → **装/更新运行时**（约 30 秒）
 2. **扫码登录**，用抖音 App 扫弹出的二维码
-3. 登录态落在 `~/.dsh/dafeiyu-douyin/douyin/secrets/cookies.json`，之后不用天天扫
+3. 登录态落在 `~/.dsh/dsh-douyinxiaoqi/douyin/secrets/cookies.json`，之后不用天天扫
 
-> 不想扫码？如果你已经有一个**带调试端口**的 Chrome（`chrome --remote-debugging-port=9222`），在 `~/.dsh/dafeiyu-douyin/config.json` 里写 `{"douyin":{"cdpUrl":"http://127.0.0.1:9222"}}`，插件就直接接管那个浏览器，登录态跟着它走。
+> 不想扫码？如果你已经有一个**带调试端口**的 Chrome（`chrome --remote-debugging-port=9222`），在 `~/.dsh/dsh-douyinxiaoqi/config.json` 里写 `{"douyin":{"cdpUrl":"http://127.0.0.1:9222"}}`，插件就直接接管那个浏览器，登录态跟着它走。
 > 抖音桌面客户端（`/Applications/抖音.app`）虽然是 Electron，但它自己解析启动参数，`--remote-debugging-port` 会被拒（`bad option`），所以**没法从客户端里抠登录态**，还是扫码这一条路。
 
 想用命令行验证：
 
 ```bash
-curl -s http://127.0.0.1:<dsh-port>/dafeiyu-douyin/api/status | jq .status
+curl -s http://127.0.0.1:<dsh-port>/dsh-douyinxiaoqi/api/status | jq .status
 ```
 
 ---
@@ -80,8 +126,17 @@ curl -s http://127.0.0.1:<dsh-port>/dafeiyu-douyin/api/status | jq .status
 | `comments` | 读评论（`args.id`、`args.limit`） | 读 |
 | `user` | 某人主页 + 作品（`args.secUid` 或 `args.keyword`） | 读 |
 | `works` | 自己发过的作品 | 读 |
+| `state` / `play` / `pause` / `next` / `previous` | 当前播放状态 / 播放 / 暂停 / 下一个 / 上一个 | 读 |
+| `observe` | 观察几秒（`args.seconds` 1–10），回「播了多久、停留没」 | 读 |
+| `watch` | 自主看一会儿（`args.minutes`、`args.maxRounds`、`args.seconds`），受每日额度限制 | 读 |
+| `watch_status` | 今天的观看额度：用了几分钟、还剩多少、在不在可看时段 | 读 |
+| `report` | 生成本机观看日报（`args.day` 可指定日期） | 读 |
+| `doctor` | 自检 + 修（`args.repair=true` 才动手：清 profile 锁、杀残留 Chrome、装运行时） | 账号 |
+| `im_list` | 私信会话列表（谁发来、最后一句话、未读） | 读 |
+| `im_read` | 读某个会话（`args.name` 或 `args.index`，`args.limit`） | 读 |
 | `like` / `collect` | 点赞 / 收藏（`args.id`） | 写 |
 | `follow` | 关注（`args.secUid` 或 `args.nickname`） | 写 |
+| `im_send` | 回私信（`args.text`，可带 `args.name`/`args.index` 指定会话） | 写 |
 | `comment` | 发评论（`args.id`、`args.text`） | 写 |
 | `publish` | 投稿，两步走（见下） | 写（必审批） |
 
@@ -103,7 +158,7 @@ action=publish args={mode:"commit"} approvalId=…
 - 没设封面时自动选它的第一个推荐封面兜底
 - 撞到短信验证会返回 `needsSms`，需要你本人收验证码，插件不会瞎猜
 
-另外两个工具：`dafeiyu_douyin_thread`（总线程）、`dafeiyu_douyin_pending`（审批队列，只能看不能批自己）、`dafeiyu_douyin_policy`（看/改策略）。
+另外几个工具：`dafeiyu_thread`（总线程）、`dafeiyu_pending`（审批队列，只能看不能批自己）、`dafeiyu_douyin_policy`（看/改策略），以及人格那一套 `dafeiyu_self / dafeiyu_memory / dafeiyu_relation / dafeiyu_plan / dafeiyu_learn / dafeiyu_tick / dafeiyu_chat`。
 
 ---
 
@@ -133,18 +188,21 @@ action=publish args={mode:"commit"} approvalId=…
 ## 状态目录
 
 ```text
-~/.dsh/dafeiyu-douyin/
-├── config.json        # 浏览器配置（headless/channel/timeout…）
-├── policy.json        # 权限策略
-├── state.json         # 登录态快照
+~/.dsh/dsh-douyinxiaoqi/
+├── self/              # persona / style / preferences / plan / progress / heartbeat / learning.json
+├── memory/            # core.md、short/（短时记忆）、emotion.json、boredom.json、satisfaction.json
+├── relations/         # index.json + <uid>.md（对具体账号的印象与互动）
+├── pending/           # 审批项，一个动作一个文件
+├── ledger/            # 动作账本（append-only，按天）
+├── state/             # login.json、risk.json、heartbeat.json
+├── config.json        # 浏览器配置（headless/channel/cdpUrl/timeout…）
+├── policy.json        # 权限策略（自主名单 / 安静时段 / 限额）
 ├── thread.json        # 总线程
-├── pending.json       # 审批队列
-├── actions.jsonl      # 动作日志（append-only）
-├── risk.json          # 风控冷却
 └── douyin/
     ├── profile/         # 持久化 Chrome profile（登录态在这）
     ├── runtime/         # playwright-core
     ├── secrets/         # cookies.json
+    ├── state.json       # 最近一次登录快照
     └── shots/           # 截图（出问题时好排查）
 ```
 
@@ -168,6 +226,77 @@ action=publish args={mode:"commit"} approvalId=…
 这插件是给「自己的账号、自己的操作节奏」用的。默认限额和安静时段不是装饰，是防止 agent 半夜上头。如果你 fork 之后把限额全放开、把安静时段关掉，那是你的选择，但别把这个仓库当外挂的底座。
 
 ---
+
+### 0.2.3：私信能读也能回
+
+之前 `dafeiyu_douyin` 只覆盖作品，私信（IM）根本没有。0.2.3 补上三条：
+
+| action | 说明 |
+| --- | --- |
+| `im_list` | 会话列表：谁发来、最后一句话、时间、未读 |
+| `im_read` | 打开某个会话读最近消息，带 `incoming` / `outgoing` 方向 |
+| `im_send` | 在指定会话里回一句话，回车发送，发完回读确认 |
+
+抖音的私信在网页版是个浮层，没有可调的公开接口——签名在页面里，所以**读走 DOM、写走真实键盘输入**：
+
+- 入口 `[data-e2e="im-entry"]`、浮层 `[data-e2e="im-dialog"]`
+- 会话行 `[data-e2e="conversation-item"]`，标题取 `[class*="StackChatHeadertitle"]`
+- 正文 `[data-e2e="msg-item-content"]`，方向认祖先上的 `isFromMe`（左右对齐在桌面端两边都靠右，靠位置判断会全错）
+- 输入框是 Slate：`fill` 写不进它的状态，必须 `keyboard.type` 逐字敲；发送用回车，按钮常被浮层挡住只当兜底
+- 发送确认：回读最后几条 + 会话列表预览里能看到那句话，才算发出去（`delivered` / `previewOk`）
+
+选择器和阻断判断参考了 [LockyBee/dsh-douyin-agent](https://github.com/LockyBee/dsh-douyin-agent) 的 `chat-browser.mjs`；对方那套有联系人授权、会话指纹、水位三重核对，我们没照搬，只做了「开浮层 → 选会话 → 读/填 → 回车 → 回读」。
+
+私信回复算日常互动，默认在自主名单里（`douyin.im_send`，每小时 6 条、每天 40 条）；安静时段照样不写。
+
+### 0.3.0：把「真的在看」补上，顺手学了三家的长处
+
+对三个仓库做了能力对照（详见 [docs/INTEGRATION.md](docs/INTEGRATION.md)），重复的只留一份：
+
+- 播放控制：`state` / `play` / `pause` / `next` / `previous`（`next` 用 ArrowDown，回到 `previous` 用 ArrowUp）。
+- 观察采样：`observe args.seconds`（1–10 秒），用播放器时间判定「播了多久、我停没停住」，不靠截图猜。
+- 兴趣记忆：`dafeiyu_memory` 新增 `interest_add` / `interest_list`；带 `evidenceId` 才记账，主题只是提案。
+- 看片流水与日报：`observe`/`next`/`play` 自动写 `<state>/state/watch.jsonl`；`action=report` 生成本机 Markdown 日报，不调模型。
+- 私信沿用 0.2.3 的轻量版：DOM 解析 + `isFromMe` 判方向 + 发送后回读，不做联系人白名单库。
+
+取舍得说明白：`LockyBee/dsh-douyin-agent` 绑 Windows + Edge，还依赖 `@playwright/mcp`，我们只抄思路不搬实现；投稿、权限闸、总线程、人设记忆是我们的强项，继续留着。
+
+### 0.4.0：自主看一会儿 + 自检修复
+
+把 `dsh-douyin-agent` 剩下的两块也补上了，顺手把「看一眼就报错」的老毛病挖干净：
+
+- `action=watch`：真的自主看一小段——先看当前状态，然后 `next` 划下一个、`observe` 停 4 秒，重复到额度或轮次用完；每条都写 `state/watch.jsonl`，结束回「看了几条、花了多久、额度还剩多少」。
+- 观看额度在 `config.json` 的 `watch` 段：`enabled`、`sessionMinutes`（单次上限，默认 6）、`dailyMinutes`（每天上限，默认 30）、`stopAfterVideos`（默认 8 条）、`windowStart`/`windowEnd`（默认 08:00–23:30，其它时间不自己看）。`action=watch_status` 随时查，系统提示卡片上也会写「今天看了 X/Y 分钟」。
+- `action=doctor`：查运行时/Chrome/profile 锁/残留 Chrome/登录态/状态目录/浏览器，`args.repair=true` 会清 `Singleton*`、杀掉占着 profile 的僵尸 Chrome、必要时重装运行时。实测本机抓到 9 个残留 Chrome 进程，修完再查全绿。
+- `action=watch` 和 `report` 都不进审批（纯读），但都受安静时段限制。
+
+### 0.4.1：总控台重做，功能摊开
+
+原来八页签什么都收着，看着干净、用着别扭。这版直接摊开成十个页签：
+
+- **总览**：情绪/满足/今天看了三块环形+进度条，登录、浏览器、额度、待审批、手头五颗状态灯，快捷操作（刷一屏、看额度、自检、开浏览器、踢心跳），最近动作 + 厌倦度 + 文档卡片
+- **抖音**：读动作下拉（feed/hot/search/video/comments/user/works/state/observe）、关键词/作品 id/条数/观察秒数、结果按作品卡片渲染，播放四键 + 观察，扫码登录带自动轮询，私信会话列表/读会话
+- **看片**：今日额度环形、可看时段、单次/每天上限、看片流水、兴趣（👍/👎 + 最近反思）、一键生成日报
+- **人设 / 记忆 / 关系 / 规划 / 审批 / 权限 / 自检**：文档编辑器带「没保存」提示；情绪和核心记忆可直接改；关系能选人、写印象、记一笔；审批能批准/拒绝；权限是 JSON 编辑器 + 闸门顺序说明；自检显示七项检查表和「能修的直接修」
+
+配套后端：`/read` 现在也认 state/play/pause/next/previous/observe/im_list/im_read/watch_status/report，新增 `GET /watch`、`POST /report`、`POST /doctor`。
+
+### 0.5.0：开始运营 —— 回私信、压缩记忆、学热梗、把好东西丢给我
+
+四个新动作，都不需要额外模型，规则写在插件里，判断留给我：
+
+| 动作 | 干什么 |
+|---|---|
+| `dafeiyu_douyin action=im_auto` | 扫一遍私信：谁发来新话（未读或预览变了）。回过的会记在 `state/im-seen.json`，不会反复提醒。 |
+| `dafeiyu_douyin action=share args.id=<作品>` | 生成一段总结：作者、赞/评/藏、评论区最扎的一条、原链接；再用 `im_send` 发给主人会话，同时记进 `state/shares.jsonl`。 |
+| `dafeiyu_douyin action=trends args.keyword=热梗` | 热榜 + 搜索词结果，拿去评论区看真实用法，再用 `dafeiyu_learn` 记一条。 |
+| `dafeiyu_memory action=compact` | 把 `keepDays`（默认 2 天）之前的短记忆并进 `memory/long-term.md`，原文不删，只做索引。 |
+
+配套改动：
+- `templates/heartbeat.md` 重写成会自我复盘的版本：先接人（`im_auto`）→ 再看内容 → 闲了学一个梗 → 最后一分钟复盘并改这份稿，改不出理由就别改。
+- 自动回复的边界写在文档里：**插件不替我想句子**，它只负责发现「有人在等我」和把回复发出去；句子由我看完上下文再写，写不出来就不硬回。
+
+完整的功能来源、工具清单、权限边界和配置说明见 [功能说明](docs/FEATURES.md)；三仓库的逐项取舍见 [整合对照](docs/INTEGRATION.md)。
 
 ## 致谢 / 借鉴
 
